@@ -15,6 +15,7 @@ class Linear(nn.Module):
         self.bias = nn.Parameter(torch.randn(out_features, device=device, dtype=dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # (..., in_features) -> (..., out_features)
         return x @ self.weight.T + self.bias
 
 class Embedding(nn.Module):
@@ -25,6 +26,7 @@ class Embedding(nn.Module):
         self.weight = nn.Parameter(torch.randn(num_embeddings, embedding_dim, device=device, dtype=dtype))
 
     def forward(self, token_ids: torch.Tensor) -> torch.Tensor:
+        # (...) -> (..., embedding_dim)
         return self.weight[token_ids]
 
 class RMSNorm(nn.Module):
@@ -34,6 +36,7 @@ class RMSNorm(nn.Module):
         self.weight = nn.Parameter(torch.ones(d_model, device=device, dtype=dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # (..., d_model) -> (..., d_model)
         in_dtype = x.dtype
         x = x.to(torch.float32)
         rms = torch.sqrt((x ** 2).mean(dim=-1, keepdim=True) + self.eps)
@@ -50,14 +53,11 @@ class SwiGLU(nn.Module):
         self.w3 = Linear(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        # (..., d_model) -> (..., d_ff) -> (..., d_model)
         gate = self.w1(x)
         return self.w2(torch.sigmoid(gate) * gate * self.w3(x))
 
 class RotaryPositionalEmbedding(nn.Module):
-    '''
-    对输入向量的每两个维度组成的二维子空间，根据 token 的位置旋转不同角度，
-    从而把位置信息编码进 query/key 向量中，同时保持向量维度不变。
-    '''
     def __init__(self, theta: float, d_k: int, max_seq_len: int, device=None):
         super().__init__()
         positions = torch.arange(max_seq_len, device=device).unsqueeze(1)
@@ -68,6 +68,7 @@ class RotaryPositionalEmbedding(nn.Module):
         self.register_buffer("sin", torch.sin(angles), persistent=False)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor) -> torch.Tensor:
+        # (..., seq_len, d_k) -> (..., seq_len, d_k)
         cos = self.cos[token_positions]
         sin = self.sin[token_positions]
         x1 = x[..., 0::2]
@@ -86,12 +87,14 @@ def scaled_dot_product_attention(
     V: torch.Tensor,
     mask: torch.Tensor | None = None,
 ) -> torch.Tensor:
+    # (..., queries, d_k) x (..., keys, d_k) -> (..., queries, keys)
     d_k = Q.shape[-1]
     # Compute attention scores and scale by sqrt(d_k) to prevent vanishing gradients
     scores = Q @ K.transpose(-2, -1) / math.sqrt(d_k)
     if mask is not None:
         # Fill masked positions with -inf so they become 0 after softmax
         scores = scores.masked_fill(~mask, float("-inf"))
+    # (..., queries, keys) -> (..., queries, d_v)
     attn = softmax(scores, dim=-1)
     return attn @ V
 
@@ -107,8 +110,9 @@ class MultiHeadSelfAttention(nn.Module):
         self.output_proj = Linear(d_model, d_model, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        # (..., seq_len, d_model) -> (..., seq_len, d_model)
         *batch, seq_len, d_model = x.shape
-        # Project and split into heads: (..., seq_len, num_heads, d_k) -> (..., num_heads, seq_len, d_k)
+        # (..., seq_len, d_model) -> (..., num_heads, seq_len, d_k)
         Q = self.q_proj(x).unflatten(-1, (self.num_heads, self.d_k)).transpose(-2, -3)
         K = self.k_proj(x).unflatten(-1, (self.num_heads, self.d_k)).transpose(-2, -3)
         V = self.v_proj(x).unflatten(-1, (self.num_heads, self.d_k)).transpose(-2, -3)
@@ -123,9 +127,10 @@ class MultiHeadSelfAttention(nn.Module):
 
         # Causal mask: only attend to current and previous positions
         causal_mask = torch.ones(seq_len, seq_len, dtype=torch.bool, device=x.device).tril()
+        # (..., num_heads, seq_len, d_k) -> (..., num_heads, seq_len, d_k)
         out = scaled_dot_product_attention(Q, K, V, mask=causal_mask)
 
-        # Merge heads back: (..., num_heads, seq_len, d_k) -> (..., seq_len, d_model)
+        # (..., num_heads, seq_len, d_k) -> (..., seq_len, d_model)
         out = out.transpose(-2, -3).flatten(-2)
         return self.output_proj(out)
 
@@ -142,6 +147,7 @@ class TransformerBlock(nn.Module):
         self.ffn.w3 = Linear(d_model, d_ff, device=device, dtype=dtype)
 
     def forward(self, x: torch.Tensor, token_positions: torch.Tensor | None = None) -> torch.Tensor:
+        # (..., seq_len, d_model) -> (..., seq_len, d_model)
         x = x + self.attn(self.ln1(x), token_positions)
         x = x + self.ffn(self.ln2(x))
         return x
@@ -159,8 +165,12 @@ class TransformerLM(nn.Module):
         self.lm_head = Linear(d_model, vocab_size, device=device, dtype=dtype)
 
     def forward(self, in_indices: torch.Tensor) -> torch.Tensor:
+        # (batch, seq_len) -> (batch, seq_len, d_model)
         x = self.token_embeddings(in_indices)
+        # (batch, seq_len, d_model) -> (batch, seq_len, d_model) x num_layers
         for layer in self.layers:
             x = layer(x)
+        # (batch, seq_len, d_model) -> (batch, seq_len, d_model)
         x = self.ln_final(x)
+        # (batch, seq_len, d_model) -> (batch, seq_len, vocab_size)
         return self.lm_head(x)
