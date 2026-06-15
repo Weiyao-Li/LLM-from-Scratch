@@ -1,4 +1,4 @@
-# nanoLlama
+# nanoLLaMA
 
 A minimal, from-scratch implementation of a LLaMA-style language model in pure PyTorch.
 
