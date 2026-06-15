@@ -3,20 +3,14 @@ import tracemalloc
 import pickle
 from cs336_basics.bpe import train_bpe
 
-INPUT_PATH = "data/TinyStoriesV2-GPT4-train.txt"
-VOCAB_SIZE = 10_000
+INPUT_PATH = "data/owt_train.txt"
+VOCAB_SIZE = 32_000
 SPECIAL_TOKENS = ["<|endoftext|>"]
 
 '''
 run command:
 cd /Users/nolan.li/Desktop/336/assignment1-basics
-python3 cs336_basics/train_bpe_tinystories.py
-
-result:
-训练耗时: 414.29s
-峰值内存: 77.9 MB
-最长 token id=7160: b' accomplishment'
-最长 token 长度: 15 bytes
+python3 cs336_basics/train_bpe_owt.py
 '''
 if __name__ == '__main__':
     tracemalloc.start()
@@ -39,9 +33,9 @@ if __name__ == '__main__':
     print(f"最长 token id={longest_id}: {vocab[longest_id]}")
     print(f"最长 token 长度: {len(vocab[longest_id])} bytes")
 
-    with open("data/tinystories_vocab.pkl", "wb") as f:
+    with open("data/owt_vocab.pkl", "wb") as f:
         pickle.dump(vocab, f)
-    with open("data/tinystories_merges.pkl", "wb") as f:
+    with open("data/owt_merges.pkl", "wb") as f:
         pickle.dump(merges, f)
 
     print("vocab 和 merges 已保存到 data/")
