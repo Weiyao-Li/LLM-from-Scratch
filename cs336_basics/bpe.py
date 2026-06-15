@@ -1,9 +1,11 @@
 import regex as re
 from collections import defaultdict
-from tqdm.contrib.concurrent import process_map
 from itertools import pairwise
 import yaml
 import time
+import os
+import multiprocessing
+from cs336_basics.pretokenization_example import find_chunk_boundaries
 PAT = re.compile(r"""'(?:[sdmt]|ll|ve|re)| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+""")
 
 def read_text(input_path):
@@ -206,6 +208,19 @@ def update_cnt_fast(word_cnt, pair_cnt, merge_pair):
 
     return new_word_cnt, new_pair_cnt
 
+def count_word_from_file(args):
+    input_path, start, end, special_tokens = args
+    with open(input_path, "rb") as f:
+        f.seek(start)
+        chunk_bytes = f.read(end - start)
+    chunk = chunk_bytes.decode("utf-8", errors="ignore")
+    sub_chunks = split_by_special(chunk, special_tokens)
+    word_cnt = defaultdict(int)
+    for sc in sub_chunks:
+        for k, v in count_word(sc).items():
+            word_cnt[k] += v
+    return word_cnt
+
 def train_bpe(input_path,vocab_size,special_tokens):
     """
     Train a Byte Pair Encoding (BPE) tokenizer on the input text.
@@ -241,12 +256,15 @@ def train_bpe(input_path,vocab_size,special_tokens):
         - Number of merges = vocab_size - base_vocab_size
     """
 
-    text = read_text(input_path)
-    chunks = split_by_special(text,special_tokens)
-
-    # Only parallelize if chunk count is big enough
-    if len(chunks) < 4: word_dicts = list(map(count_word, chunks))
-    else: word_dicts = process_map(count_word, chunks, chunksize=100)
+    num_processes = os.cpu_count() or 4
+    with open(input_path, "rb") as f:
+        boundaries = find_chunk_boundaries(f, num_processes, "<|endoftext|>".encode("utf-8"))
+    args_list = [
+        (input_path, start, end, special_tokens)
+        for start, end in zip(boundaries[:-1], boundaries[1:])
+    ]
+    with multiprocessing.Pool(num_processes) as pool:
+        word_dicts = pool.map(count_word_from_file, args_list)
 
     word_cnt = merge_dicts(word_dicts)
     pair_cnt = count_pair(word_cnt)
@@ -261,6 +279,8 @@ def train_bpe(input_path,vocab_size,special_tokens):
         vocab[base_vocab_size+i] = max_pair[0]+max_pair[1]
         merges.append(max_pair)
         word_cnt, pair_cnt = update_cnt_fast(word_cnt,pair_cnt,max_pair)
+        if (i + 1) % 100 == 0 or i == 0:
+            print(f"Merge {i+1}/{n_merges} | merged: {max_pair[0]+max_pair[1]}")
     return vocab, merges
 
 def save_tokenizer_yaml(vocab, merges, fname):
