@@ -182,6 +182,7 @@ class TransformerBlock(nn.Module):
 class TransformerLM(nn.Module):
     def __init__(self, vocab_size: int, context_length: int, d_model: int, num_layers: int, num_heads: int, d_ff: int, rope_theta: float, device=None, dtype=None):
         super().__init__()
+        self.context_length = context_length
         self.token_embeddings = Embedding(vocab_size, d_model, device=device, dtype=dtype)
         # Single shared RoPE instance across all layers
         rope = RotaryPositionalEmbedding(theta=rope_theta, d_k=d_model // num_heads, max_seq_len=context_length, device=device)
@@ -289,7 +290,8 @@ def save_checkpoint(model, optimizer, iteration: int, out) -> None:
 def load_checkpoint(src, model, optimizer) -> int:
     checkpoint = torch.load(src)
     model.load_state_dict(checkpoint["model"])
-    optimizer.load_state_dict(checkpoint["optimizer"])
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint["optimizer"])
     return checkpoint["iteration"]
 
 # Autoregressive text generation with temperature scaling and top-p (nucleus) sampling
