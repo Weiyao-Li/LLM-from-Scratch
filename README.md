@@ -29,7 +29,7 @@ source .venv/bin/activate
 ### Train
 
 ```sh
-python3 -m llmcore.train \
+python3 -m cs336_basics.train \
   --train_data data/train.bin \
   --val_data data/val.bin \
   --checkpoint_dir checkpoints \
@@ -46,7 +46,7 @@ python3 -m llmcore.train \
 ### Generate
 
 ```sh
-python3 -m llmcore.generate \
+python3 -m cs336_basics.generate \
   --prompt "Once upon a time" \
   --temperature 0.8 \
   --top_k 50
