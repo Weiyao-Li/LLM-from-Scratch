@@ -60,6 +60,26 @@ python3 -m cs336_basics.generate \
 uv run pytest
 ```
 
+## Example Output
+
+Trained on TinyStories (~2M tokens), `temperature=0.9`, `top_k=40`:
+
+```
+Prompt: Once upon a time
+----------------------------------------
+Once upon a time, there was a little boy named Tim. Tim loved to play outside.
+One day, he found an old box. It was full of crayons. The crayons were pink and
+blue. Tim did not understand what was inside. He thought it was a magic crayon.
+
+Tim showed the magic crayon to his mom. She said it could glow. She would glow
+too, and her small crayon could glow. Each day, Tim would rub the magic crayon
+back and make the small crayon glow.
+
+One day, Tim's mom found the magic crayon. She was not mad. She said the magic
+crayon could talk. Tim was very happy. He could now make things glow brighter.
+From that day on, Tim loved his magic crayon and crayons.
+```
+
 ## Data
 
 ```sh
