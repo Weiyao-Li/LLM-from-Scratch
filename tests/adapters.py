@@ -95,7 +95,7 @@ def run_swiglu(
     from cs336_basics.module import SwiGLU
 
     swiglu = SwiGLU.__new__(SwiGLU)
-    nn.Module.__init__(swiglu)
+    torch.nn.Module.__init__(swiglu)
     from cs336_basics.module import Linear
     swiglu.w1 = Linear(d_model, d_ff)
     swiglu.w2 = Linear(d_ff, d_model)
@@ -489,7 +489,12 @@ def run_rmsnorm(
         Float[Tensor,"... d_model"]: Tensor of with the same shape as `in_features` with the output of running
         RMSNorm of the `in_features`.
     """
-    raise NotImplementedError
+    from cs336_basics.module import RMSNorm
+
+    norm = RMSNorm(d_model, eps=eps)
+    with torch.no_grad():
+        norm.weight.data.copy_(weights)
+    return norm(in_features)
 
 
 def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
@@ -503,7 +508,7 @@ def run_silu(in_features: Float[Tensor, " ..."]) -> Float[Tensor, " ..."]:
         Float[Tensor,"..."]: of with the same shape as `in_features` with the output of applying
         SiLU to each element.
     """
-    raise NotImplementedError
+    return in_features * torch.sigmoid(in_features)
 
 
 def run_get_batch(
@@ -615,7 +620,14 @@ def run_get_lr_cosine_schedule(
     Returns:
         Learning rate at the given iteration under the specified schedule.
     """
-    raise NotImplementedError
+    import math
+
+    if it < warmup_iters:
+        return max_learning_rate * it / warmup_iters
+    if it >= cosine_cycle_iters:
+        return min_learning_rate
+    progress = (it - warmup_iters) / (cosine_cycle_iters - warmup_iters)
+    return min_learning_rate + 0.5 * (max_learning_rate - min_learning_rate) * (1 + math.cos(math.pi * progress))
 
 
 def run_save_checkpoint(
@@ -680,7 +692,8 @@ def get_tokenizer(
     Returns:
         A BPE tokenizer that uses the provided vocab, merges, and special tokens.
     """
-    raise NotImplementedError
+    from cs336_basics.tokenizer import Tokenizer
+    return Tokenizer(vocab=vocab, merges=merges, special_tokens=special_tokens)
 
 
 def run_train_bpe(
@@ -710,4 +723,5 @@ def run_train_bpe(
                 representing that <token1> was merged with <token2>.
                 Merges are ordered by order of creation.
     """
-    raise NotImplementedError
+    from cs336_basics.bpe import train_bpe
+    return train_bpe(input_path=input_path, vocab_size=vocab_size, special_tokens=special_tokens)
