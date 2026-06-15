@@ -16,6 +16,23 @@ from cs336_basics.module import (
     save_checkpoint,
 )
 
+'''
+python3 -m cs336_basics.train \
+  --train_data data/train.bin \
+  --val_data data/val.bin \
+  --checkpoint_dir checkpoints \
+  --vocab_size 10000 \
+  --context_length 256 \
+  --d_model 512 \
+  --num_layers 6 \
+  --num_heads 8 \
+  --d_ff 1344 \
+  --batch_size 32 \
+  --total_steps 10000 \
+  --warmup_steps 200
+
+'''
+
 
 def cosine_lr_schedule(step: int, max_lr: float, min_lr: float, warmup_steps: int, total_steps: int) -> float:
     if step < warmup_steps:

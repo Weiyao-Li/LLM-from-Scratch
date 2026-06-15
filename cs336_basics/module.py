@@ -14,8 +14,8 @@ class Linear(nn.Module):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.weight = nn.Parameter(torch.randn(out_features, in_features, device=device, dtype=dtype))
-        self.bias = nn.Parameter(torch.randn(out_features, device=device, dtype=dtype))
+        self.weight = nn.Parameter(torch.randn(out_features, in_features, device=device, dtype=dtype) / math.sqrt(in_features))
+        self.bias = nn.Parameter(torch.zeros(out_features, device=device, dtype=dtype))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         # (..., in_features) -> (..., out_features)
