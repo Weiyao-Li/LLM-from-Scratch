@@ -294,6 +294,13 @@ def load_checkpoint(src, model, optimizer) -> int:
 
 # Autoregressive text generation with temperature scaling and top-p (nucleus) sampling
 # Generates tokens one at a time, appending each to the context for the next step
+'''
+prompt
+→ 模型预测下一个 token 的概率
+→ 按 temperature / top-p 采样一个 token
+→ append 到 tokens
+→ 再用新 tokens 继续预测
+'''
 def generate(
     model: "TransformerLM",
     prompt: list[int],
@@ -301,9 +308,10 @@ def generate(
     eos_token_id: int | None = None,
     temperature: float = 1.0,
     top_p: float = 1.0,
-    device: str = "cpu",
 ) -> list[int]:
     model.eval()
+    # Infer device from model parameters to avoid mismatch
+    device = next(model.parameters()).device
     tokens = list(prompt)
 
     with torch.no_grad():
